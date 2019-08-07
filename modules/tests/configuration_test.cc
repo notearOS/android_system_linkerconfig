@@ -13,20 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <gtest/gtest.h>
+#include <vector>
 
-#include "linkerconfig/configwriter.h"
-#include "linkerconfig/section.h"
+#include "linkerconfig/configuration.h"
 #include "modules_testbase.h"
 
 using namespace android::linkerconfig::modules;
 
-constexpr const char* kSectionWithNamespacesExpectedResult =
-    R"([test_section]
+constexpr const char* kExpectedConfiguration =
+    R"(dir.vendor = /vendor/bin
+dir.system = /system/xbin
+dir.vendor = /system/bin/vendor
+dir.system = /system/bin
+dir.vendor = /product/bin/vendor
+dir.system = /product/bin
+dir.vendor = /odm/bin
+[system]
 additional.namespaces = namespace1,namespace2
-namespace.default.isolated = true
-namespace.default.visible = true
+namespace.default.isolated = false
 namespace.default.search.paths = /search_path1
 namespace.default.search.paths += /search_path2
 namespace.default.search.paths += /search_path3
@@ -57,11 +62,6 @@ namespace.namespace1.asan.search.paths += /search_path2
 namespace.namespace1.asan.permitted.paths = /permitted_path1
 namespace.namespace1.asan.permitted.paths += /data/asan/permitted_path1
 namespace.namespace1.asan.permitted.paths += /permitted_path2
-namespace.namespace1.links = default,namespace2
-namespace.namespace1.link.default.shared_libs = lib1.so
-namespace.namespace1.link.default.shared_libs += lib2.so
-namespace.namespace1.link.default.shared_libs += lib3.so
-namespace.namespace1.link.namespace2.allow_all_shared_libs = true
 namespace.namespace2.isolated = false
 namespace.namespace2.search.paths = /search_path1
 namespace.namespace2.search.paths += /search_path2
@@ -75,10 +75,7 @@ namespace.namespace2.asan.search.paths += /search_path2
 namespace.namespace2.asan.permitted.paths = /permitted_path1
 namespace.namespace2.asan.permitted.paths += /data/asan/permitted_path1
 namespace.namespace2.asan.permitted.paths += /permitted_path2
-)";
-
-constexpr const char* kSectionWithOneNamespaceExpectedResult =
-    R"([test_section]
+[vendor]
 namespace.default.isolated = false
 namespace.default.search.paths = /search_path1
 namespace.default.search.paths += /search_path2
@@ -94,76 +91,42 @@ namespace.default.asan.permitted.paths += /data/asan/permitted_path1
 namespace.default.asan.permitted.paths += /permitted_path2
 )";
 
-constexpr const char* kSectionBinaryPathExpectedResult =
-    R"(/root/a
-/root/a/b
-/root/b
-)";
+TEST(linkerconfig_configuration, generate_configuration) {
+  std::vector<Section> sections;
 
-TEST(linkerconfig_section, section_with_namespaces) {
-  ConfigWriter writer;
+  std::vector<Namespace> system_namespaces;
+  std::vector<std::string> system_binary_path = {
+      "/system/bin",
+      "/system/xbin",
+      "/product/bin",
+  };
 
-  std::vector<Namespace> namespaces;
+  system_namespaces.emplace_back(CreateNamespaceWithLinks(
+      "default", false, false, "namespace1", "namespace2"));
+  system_namespaces.emplace_back(
+      CreateNamespaceWithPaths("namespace1", false, false));
+  system_namespaces.emplace_back(
+      CreateNamespaceWithPaths("namespace2", false, false));
 
-  namespaces.emplace_back(CreateNamespaceWithLinks("default", true, true,
-                                                   "namespace1", "namespace2"));
-  namespaces.emplace_back(CreateNamespaceWithLinks("namespace1", false, false,
-                                                   "default", "namespace2"));
-  namespaces.emplace_back(CreateNamespaceWithPaths("namespace2", false, false));
+  Section system_section("system", system_binary_path,
+                         std::move(system_namespaces));
+  sections.emplace_back(std::move(system_section));
 
-  std::vector<std::string> empty_list;
+  std::vector<Namespace> vendor_namespaces;
+  std::vector<std::string> vendor_binary_path = {
+      "/odm/bin", "/vendor/bin", "/system/bin/vendor", "/product/bin/vendor"};
 
-  Section section("test_section", empty_list, std::move(namespaces));
+  vendor_namespaces.emplace_back(
+      CreateNamespaceWithPaths("default", false, false));
 
-  section.WriteConfig(writer);
-  auto config = writer.ToString();
-  ASSERT_EQ(config, kSectionWithNamespacesExpectedResult);
-}
+  Section vendor_section("vendor", vendor_binary_path,
+                         std::move(vendor_namespaces));
+  sections.emplace_back(std::move(vendor_section));
 
-TEST(linkerconfig_section, section_with_one_namespace) {
+  Configuration conf(std::move(sections));
+
   android::linkerconfig::modules::ConfigWriter writer;
+  conf.WriteConfig(writer);
 
-  std::vector<Namespace> namespaces;
-  namespaces.emplace_back(CreateNamespaceWithPaths("default", false, false));
-
-  std::vector<std::string> empty_list;
-
-  Section section("test_section", empty_list, std::move(namespaces));
-  section.WriteConfig(writer);
-  auto config = writer.ToString();
-  ASSERT_EQ(config, kSectionWithOneNamespaceExpectedResult);
-}
-
-TEST(linkerconfig_section, binary_paths) {
-  std::vector<std::string> binary_paths = {"/root/a", "/root/a/b", "/root/b"};
-  std::vector<Namespace> empty_namespace;
-  Section section("test_section", binary_paths, std::move(empty_namespace));
-
-  BinaryPathMap paths;
-  section.CollectBinaryPaths(paths);
-
-  std::string binary_path_output = "";
-  for (auto& item : paths) {
-    binary_path_output += item.first + "\n";
-  }
-
-  ASSERT_EQ(binary_path_output, kSectionBinaryPathExpectedResult);
-}
-
-TEST(linkerconfig_section, same_binary_paths) {
-  std::vector<std::string> binary_paths_a = {"/root/a", "/root/b"};
-  std::vector<Namespace> empty_namespace_a;
-  Section section_a("test_section_a", binary_paths_a,
-                    std::move(empty_namespace_a));
-
-  std::vector<std::string> binary_paths_b = {"/root/b", "/root/c"};
-  std::vector<Namespace> empty_namespace_b;
-  Section section_b("test_section_b", binary_paths_b,
-                    std::move(empty_namespace_b));
-
-  BinaryPathMap paths;
-  section_a.CollectBinaryPaths(paths);
-  section_b.CollectBinaryPaths(paths);
-
-  ASSERT_EQ(paths["/root/b"], "test_section_a");
+  ASSERT_EQ(writer.ToString(), kExpectedConfiguration);
 }

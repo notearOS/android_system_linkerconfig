@@ -14,30 +14,36 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/link.h"
+#include "linkerconfig/configuration.h"
 
 namespace android {
 namespace linkerconfig {
 namespace modules {
-void Link::WriteConfig(ConfigWriter& writer) {
-  writer.SetPrefix("namespace." + origin_namespace_ + ".link." +
-                   target_namespace_);
-  if (allow_all_shared_libs_) {
-    writer.WriteLine(".allow_all_shared_libs = true");
-  } else {
-    bool is_first = true;
+void Configuration::WriteConfig(ConfigWriter& writer) {
+  BinaryPathMap binary_paths;
 
-    for (auto& lib_name : shared_libs_) {
-      writer.WriteLine(".shared_libs %s %s",
-                       is_first ? "=" : "+=", lib_name.c_str());
-      is_first = false;
-    }
+  for (auto& section : sections_) {
+    section.CollectBinaryPaths(binary_paths);
   }
-  writer.ResetPrefix();
+
+  // Navigate in reverse order to keep sub directories on top of parent directory
+  for (auto it = binary_paths.rbegin(); it != binary_paths.rend(); it++) {
+    writer.WriteLine("dir.%s = %s", it->second.c_str(), it->first.c_str());
+  }
+
+  for (auto& section : sections_) {
+    section.WriteConfig(writer);
+  }
 }
 
-void Link::AddSharedLib(std::vector<std::string> lib_names) {
-  shared_libs_.insert(shared_libs_.end(), lib_names.begin(), lib_names.end());
+Section* Configuration::GetSection(const std::string& name) {
+  for (auto& section : sections_) {
+    if (section.GetName() == name) {
+      return &section;
+    }
+  }
+
+  return nullptr;
 }
 }  // namespace modules
 }  // namespace linkerconfig
