@@ -13,32 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include "linkerconfig/link.h"
+#include <string>
+#include <vector>
+
+#include "linkerconfig/configwriter.h"
+#include "linkerconfig/section.h"
 
 namespace android {
 namespace linkerconfig {
 namespace modules {
-void Link::WriteConfig(ConfigWriter& writer) {
-  writer.SetPrefix("namespace." + origin_namespace_ + ".link." +
-                   target_namespace_);
-  if (allow_all_shared_libs_) {
-    writer.WriteLine(".allow_all_shared_libs = true");
-  } else {
-    bool is_first = true;
-
-    for (auto& lib_name : shared_libs_) {
-      writer.WriteLine(".shared_libs %s %s",
-                       is_first ? "=" : "+=", lib_name.c_str());
-      is_first = false;
-    }
+class Configuration {
+ public:
+  explicit Configuration(std::vector<Section> sections)
+      : sections_(std::move(sections)) {
   }
-  writer.ResetPrefix();
-}
+  Configuration(const Configuration&) = delete;
+  Configuration(Configuration&&) = default;
 
-void Link::AddSharedLib(std::vector<std::string> lib_names) {
-  shared_libs_.insert(shared_libs_.end(), lib_names.begin(), lib_names.end());
-}
+  void WriteConfig(ConfigWriter& writer);
+
+  // For test usage
+  Section* GetSection(const std::string& name);
+
+ private:
+  std::vector<Section> sections_;
+};
 }  // namespace modules
 }  // namespace linkerconfig
 }  // namespace android

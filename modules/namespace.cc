@@ -16,9 +16,22 @@
 
 #include "linkerconfig/namespace.h"
 
+#include <android-base/strings.h>
+
 #include "linkerconfig/log.h"
 
-#define LOG_TAG "linkerconfig"
+namespace {
+bool FindFromPathList(const std::vector<std::string>& list,
+                      const std::string& path) {
+  for (auto& path_member : list) {
+    for (auto& path_item : android::base::Split(path_member, ":")) {
+      if (path_item == path) return true;
+    }
+  }
+
+  return false;
+}
+}  // namespace
 
 namespace android {
 namespace linkerconfig {
@@ -37,18 +50,17 @@ void Namespace::WritePathString(ConfigWriter& writer,
   }
 }
 
-std::shared_ptr<Link> Namespace::CreateLink(const std::string& target_namespace,
-                                            bool allow_all_shared_libs) {
-  auto new_link =
-      std::make_shared<Link>(name_, target_namespace, allow_all_shared_libs);
+Link& Namespace::CreateLink(const std::string& target_namespace,
+                            bool allow_all_shared_libs) {
+  Link new_link(name_, target_namespace, allow_all_shared_libs);
 
   if (links_.find(target_namespace) != links_.end()) {
     LOG(INFO) << "Link to " << target_namespace
               << " already exists. Overwriting link.";
   }
 
-  links_[target_namespace] = new_link;
-  return new_link;
+  links_.emplace(target_namespace, std::move(new_link));
+  return links_.find(target_namespace)->second;
 }
 
 void Namespace::WriteConfig(ConfigWriter& writer) {
@@ -65,10 +77,17 @@ void Namespace::WriteConfig(ConfigWriter& writer) {
   WritePathString(writer, "asan.search", asan_search_paths_);
   WritePathString(writer, "asan.permitted", asan_permitted_paths_);
 
+  bool is_first = true;
+  for (const auto& whitelisted : whitelisted_) {
+    writer.WriteLine("whitelisted %s %s",
+                     is_first ? "=" : "+=", whitelisted.c_str());
+    is_first = false;
+  }
+
   if (!links_.empty()) {
     std::string link_list = "";
 
-    bool is_first = true;
+    is_first = true;
     for (auto& link : links_) {
       if (!is_first) {
         link_list += ",";
@@ -80,7 +99,7 @@ void Namespace::WriteConfig(ConfigWriter& writer) {
     writer.WriteLine("links = " + link_list);
 
     for (auto& link : links_) {
-      link.second->WriteConfig(writer);
+      link.second.WriteConfig(writer);
     }
   }
 
@@ -111,6 +130,28 @@ void Namespace::AddPermittedPath(const std::string& path, bool in_asan,
   }
 }
 
+void Namespace::AddWhitelisted(const std::string& path) {
+  whitelisted_.push_back(path);
+}
+
+std::string Namespace::GetName() {
+  return name_;
+}
+
+bool Namespace::ContainsSearchPath(const std::string& path, bool also_in_asan,
+                                   bool with_data_asan) {
+  return FindFromPathList(search_paths_, path) &&
+         (!also_in_asan || FindFromPathList(asan_search_paths_, path)) &&
+         (!also_in_asan || !with_data_asan ||
+          FindFromPathList(asan_search_paths_, kDataAsanPath + path));
+}
+bool Namespace::ContainsPermittedPath(const std::string& path,
+                                      bool also_in_asan, bool with_data_asan) {
+  return FindFromPathList(permitted_paths_, path) &&
+         (!also_in_asan || FindFromPathList(asan_permitted_paths_, path)) &&
+         (!also_in_asan || !with_data_asan ||
+          FindFromPathList(asan_permitted_paths_, kDataAsanPath + path));
+}
 }  // namespace modules
 }  // namespace linkerconfig
 }  // namespace android

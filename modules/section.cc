@@ -18,25 +18,9 @@
 
 #include "linkerconfig/log.h"
 
-#define LOG_TAG "linkerconfig"
-
 namespace android {
 namespace linkerconfig {
 namespace modules {
-std::shared_ptr<Namespace> Section::CreateNamespace(
-    const std::string& namespace_name, bool is_isolated, bool is_visible) {
-  auto new_namespace =
-      std::make_shared<Namespace>(namespace_name, is_isolated, is_visible);
-
-  if (namespaces_.find(namespace_name) != namespaces_.end()) {
-    LOG(INFO) << "Namespace " << namespace_name
-              << " already exists. Overwriting namespace.";
-  }
-
-  namespaces_[namespace_name] = new_namespace;
-  return new_namespace;
-}
-
 void Section::WriteConfig(ConfigWriter& writer) {
   writer.WriteLine("[%s]", name_.c_str());
 
@@ -44,12 +28,12 @@ void Section::WriteConfig(ConfigWriter& writer) {
 
   bool is_first = true;
   for (auto& ns : namespaces_) {
-    if (ns.first != "default") {
+    if (ns.GetName() != "default") {
       if (!is_first) {
         additional_namespaces += ",";
       }
 
-      additional_namespaces += ns.first;
+      additional_namespaces += ns.GetName();
       is_first = false;
     }
   }
@@ -59,18 +43,31 @@ void Section::WriteConfig(ConfigWriter& writer) {
   }
 
   for (auto& ns : namespaces_) {
-    ns.second->WriteConfig(writer);
+    ns.WriteConfig(writer);
   }
 }
 
-void Section::WriteBinaryPaths(ConfigWriter& writer) {
-  writer.SetPrefix("dir." + name_ + " = ");
-
+void Section::CollectBinaryPaths(BinaryPathMap& all_binary_paths) {
   for (auto& path : binary_paths_) {
-    writer.WriteLine(path);
+    auto it = all_binary_paths.find(path);
+    if (it != all_binary_paths.end()) {
+      LOG(WARNING) << "Binary path " << path << " already found from "
+                   << it->second << ". Path from " << name_
+                   << " will be ignored.";
+    } else {
+      all_binary_paths.emplace(std::make_pair(path, name_));
+    }
+  }
+}
+
+Namespace* Section::GetNamespace(const std::string& namespace_name) {
+  for (auto& ns : namespaces_) {
+    if (ns.GetName() == namespace_name) {
+      return &ns;
+    }
   }
 
-  writer.ResetPrefix();
+  return nullptr;
 }
 
 std::string Section::GetName() {

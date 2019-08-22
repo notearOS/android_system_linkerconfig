@@ -14,31 +14,29 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/link.h"
+#include "linkerconfig/sectionbuilder.h"
+
+#include "linkerconfig/namespacebuilder.h"
+
+using android::linkerconfig::contents::SectionType;
+using android::linkerconfig::modules::Namespace;
+using android::linkerconfig::modules::Section;
+
+namespace {
+const std::vector<std::string> kBinaryPath = {"/postinstall"};
+}  // namespace
 
 namespace android {
 namespace linkerconfig {
-namespace modules {
-void Link::WriteConfig(ConfigWriter& writer) {
-  writer.SetPrefix("namespace." + origin_namespace_ + ".link." +
-                   target_namespace_);
-  if (allow_all_shared_libs_) {
-    writer.WriteLine(".allow_all_shared_libs = true");
-  } else {
-    bool is_first = true;
+namespace contents {
+Section BuildPostInstallSection(Context& ctx) {
+  ctx.SetCurrentSection(SectionType::Other);
+  std::vector<Namespace> namespaces;
 
-    for (auto& lib_name : shared_libs_) {
-      writer.WriteLine(".shared_libs %s %s",
-                       is_first ? "=" : "+=", lib_name.c_str());
-      is_first = false;
-    }
-  }
-  writer.ResetPrefix();
-}
+  namespaces.emplace_back(BuildPostInstallNamespace(ctx));
 
-void Link::AddSharedLib(std::vector<std::string> lib_names) {
-  shared_libs_.insert(shared_libs_.end(), lib_names.begin(), lib_names.end());
+  return Section("postinstall", kBinaryPath, std::move(namespaces));
 }
-}  // namespace modules
+}  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

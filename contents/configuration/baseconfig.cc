@@ -14,31 +14,26 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/link.h"
+#include "linkerconfig/baseconfig.h"
+
+#include "linkerconfig/sectionbuilder.h"
+
+using android::linkerconfig::modules::Section;
 
 namespace android {
 namespace linkerconfig {
-namespace modules {
-void Link::WriteConfig(ConfigWriter& writer) {
-  writer.SetPrefix("namespace." + origin_namespace_ + ".link." +
-                   target_namespace_);
-  if (allow_all_shared_libs_) {
-    writer.WriteLine(".allow_all_shared_libs = true");
-  } else {
-    bool is_first = true;
+namespace contents {
+android::linkerconfig::modules::Configuration CreateBaseConfiguration() {
+  std::vector<Section> sections;
+  Context current_context;
 
-    for (auto& lib_name : shared_libs_) {
-      writer.WriteLine(".shared_libs %s %s",
-                       is_first ? "=" : "+=", lib_name.c_str());
-      is_first = false;
-    }
-  }
-  writer.ResetPrefix();
-}
+  sections.emplace_back(BuildSystemSection(current_context));
+  sections.emplace_back(BuildVendorSection(current_context));
+  sections.emplace_back(BuildUnrestrictedSection(current_context));
+  sections.emplace_back(BuildPostInstallSection(current_context));
 
-void Link::AddSharedLib(std::vector<std::string> lib_names) {
-  shared_libs_.insert(shared_libs_.end(), lib_names.begin(), lib_names.end());
+  return android::linkerconfig::modules::Configuration(std::move(sections));
 }
-}  // namespace modules
+}  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

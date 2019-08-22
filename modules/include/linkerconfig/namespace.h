@@ -22,16 +22,22 @@
 #include "linkerconfig/configwriter.h"
 #include "linkerconfig/link.h"
 
+#include "linkerconfig/log.h"
+
 namespace android {
 namespace linkerconfig {
 namespace modules {
-
 class Namespace {
  public:
-  Namespace(const std::string& name, bool is_isolated = false,
-            bool is_visible = false)
-      : is_isolated_(is_isolated), is_visible_(is_visible), name_(name) {
+  explicit Namespace(std::string name, bool is_isolated = false,
+                     bool is_visible = false)
+      : is_isolated_(is_isolated),
+        is_visible_(is_visible),
+        name_(std::move(name)) {
   }
+
+  Namespace(const Namespace& ns) = delete;
+  Namespace(Namespace&& ns) = default;
 
   // Add path to search path
   // This function will add path to namespace.<<namespace>>.search.paths
@@ -70,9 +76,18 @@ class Namespace {
   //    namespace.xxx.asan.permitted.paths += /data/asan/system/${LIB}
   void AddPermittedPath(const std::string& path, bool also_in_asan = true,
                         bool with_data_asan = true);
-  std::shared_ptr<Link> CreateLink(const std::string& target_namespace,
-                                   bool allow_all_shared_libs = false);
+  Link& CreateLink(const std::string& target_namespace,
+                   bool allow_all_shared_libs = false);
   void WriteConfig(ConfigWriter& writer);
+  void AddWhitelisted(const std::string& path);
+
+  std::string GetName();
+
+  // For test usage
+  bool ContainsSearchPath(const std::string& path, bool also_in_asan = true,
+                          bool with_data_asan = true);
+  bool ContainsPermittedPath(const std::string& path, bool also_in_asan = true,
+                             bool with_data_asan = true);
 
  private:
   const bool is_isolated_;
@@ -82,7 +97,8 @@ class Namespace {
   std::vector<std::string> permitted_paths_;
   std::vector<std::string> asan_search_paths_;
   std::vector<std::string> asan_permitted_paths_;
-  std::map<std::string, std::shared_ptr<Link>> links_;
+  std::vector<std::string> whitelisted_;
+  std::map<std::string, Link> links_;
   void WritePathString(ConfigWriter& writer, const std::string& path_type,
                        const std::vector<std::string>& path_list);
 };

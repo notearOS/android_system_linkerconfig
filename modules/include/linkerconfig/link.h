@@ -15,42 +15,50 @@
  */
 #pragma once
 
-#include <map>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "linkerconfig/configwriter.h"
-#include "linkerconfig/namespace.h"
+#include "linkerconfig/log.h"
 
 namespace android {
 namespace linkerconfig {
 namespace modules {
-class Section {
+class Link {
  public:
-  Section(const std::string& name) : name_(name) {
+  Link(std::string origin_namespace, std::string target_namespace,
+       bool allow_all_shared_libs = false)
+      : origin_namespace_(std::move(origin_namespace)),
+        target_namespace_(std::move(target_namespace)),
+        allow_all_shared_libs_(allow_all_shared_libs) {
   }
+  Link(const Link&) = delete;
+  Link(Link&&) = default;
+
   template <typename T, typename... Args>
-  void AddBinaryPath(T&& binary_path, Args&&... binary_paths);
-  std::shared_ptr<Namespace> CreateNamespace(const std::string& namespace_name,
-                                             bool is_isolated = false,
-                                             bool is_visible = false);
+  void AddSharedLib(T&& lib_name, Args&&... lib_names);
+  void AddSharedLib(std::vector<std::string> lib_names);
   void WriteConfig(ConfigWriter& writer);
-  void WriteBinaryPaths(ConfigWriter& writer);
-  std::string GetName();
 
  private:
-  const std::string name_;
-  std::vector<std::string> binary_paths_;
-  std::map<std::string, std::shared_ptr<Namespace>> namespaces_;
+  const std::string origin_namespace_;
+  const std::string target_namespace_;
+  const bool allow_all_shared_libs_;
+  std::vector<std::string> shared_libs_;
 };
 
 template <typename T, typename... Args>
-void Section::AddBinaryPath(T&& binary_path, Args&&... binary_paths) {
-  binary_paths_.push_back(std::forward<T>(binary_path));
+void Link::AddSharedLib(T&& lib_name, Args&&... lib_names) {
+  if (allow_all_shared_libs_) {
+    LOG(WARNING) << "Tried to add shared libraries to link from "
+                 << origin_namespace_ << " to " << target_namespace_
+                 << "while this link is allow_all_shared_libs";
+    return;
+  }
+  shared_libs_.push_back(std::forward<T>(lib_name));
   if constexpr (sizeof...(Args) > 0) {
-    AddBinaryPath(std::forward<Args>(binary_paths)...);
+    AddSharedLib(std::forward<Args>(lib_names)...);
   }
 }
 }  // namespace modules
