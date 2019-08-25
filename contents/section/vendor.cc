@@ -50,6 +50,8 @@ Section BuildVendorSection(Context& ctx) {
   namespaces.emplace_back(BuildRuntimeNamespace(ctx));
   namespaces.emplace_back(BuildVndkNamespace(ctx));
   namespaces.emplace_back(BuildSystemNamespace(ctx));
+  namespaces.emplace_back(BuildNeuralNetworksNamespace(ctx));
+
   if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
     namespaces.emplace_back(BuildVndkInSystemNamespace(ctx));
   }

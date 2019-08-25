@@ -19,37 +19,69 @@
 #include "linkerconfig/environment.h"
 #include "linkerconfig/namespace.h"
 
+using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace {
 const std::vector<std::string> kLibsFromRuntimeLegacy = {
-    "libart.so:libartd.so", "libdexfile_external.so", "libnativebridge.so",
-    "libnativehelper.so", "libnativeloader.so", "libandroidicu.so",
+    "libart.so:libartd.so",
+    "libdexfile_external.so",
+    "libnativebridge.so",
+    "libnativehelper.so",
+    "libnativeloader.so",
+    "libandroidicu.so",
     // TODO(b/122876336): Remove libpac.so once it's migrated to Webview
     "libpac.so"};
 
 const std::vector<std::string> kLibsFromRuntime = {
-    "libdexfile_external.so", "libnativebridge.so", "libnativehelper.so",
-    "libnativeloader.so", "libandroidicu.so"};
+    "libdexfile_external.so",
+    "libdexfiled_external.so",
+    "libnativebridge.so",
+    "libnativehelper.so",
+    "libnativeloader.so",
+    "libandroidicu.so",
+    "libpac.so",
+    "@{SANITIZER_RUNTIME_LIBRARIES}",
+    // TODO(b/120786417 or b/134659294): libicuuc.so and libicui18n.so are kept
+    // for app compat.
+    "libicui18n.so",
+    "libicuuc.so"};
 
 const std::vector<std::string> kPermittedPaths = {
-    "/system/${LIB}/drm", "/system/${LIB}/extractors", "/system/${LIB}/hw",
-    "/@{PRODUCT:product}/${LIB}", "/@{PRODUCT_SERVICES:product_services}/${LIB}",
+    "/system/${LIB}/drm",
+    "/system/${LIB}/extractors",
+    "/system/${LIB}/hw",
+    "/@{SYSTEM_EXT:system_ext}/${LIB}",
+    "/@{PRODUCT:product}/${LIB}",
     // These are where odex files are located. libart has to be able to
     // dlopen the files
-    "/system/framework", "/system/app", "/system/priv-app", "/vendor/framework",
-    "/vendor/app", "/vendor/priv-app", "/system/vendor/framework",
-    "/system/vendor/app", "/system/vendor/priv-app", "/odm/framework",
-    "/odm/app", "/odm/priv-app", "/oem/app", "/@{PRODUCT:product}/framework",
-    "/@{PRODUCT:product}/app", "/@{PRODUCT:product}/priv-app",
-    "/@{PRODUCT_SERVICES:product_services}/framework",
-    "/@{PRODUCT_SERVICES:product_services}/app",
-    "/@{PRODUCT_SERVICES:product_services}/priv-app", "/data", "/mnt/expand",
-    "/apex/com.android.runtime/${LIB}/bionic", "/system/${LIB}/bootstrap"};
+    "/system/framework",
+    "/system/app",
+    "/system/priv-app",
+    "/@{SYSTEM_EXT:system_ext}/framework",
+    "/@{SYSTEM_EXT:system_ext}/app",
+    "/@{SYSTEM_EXT:system_ext}/priv-app",
+    "/vendor/framework",
+    "/vendor/app",
+    "/vendor/priv-app",
+    "/system/vendor/framework",
+    "/system/vendor/app",
+    "/system/vendor/priv-app",
+    "/odm/framework",
+    "/odm/app",
+    "/odm/priv-app",
+    "/oem/app",
+    "/@{PRODUCT:product}/framework",
+    "/@{PRODUCT:product}/app",
+    "/@{PRODUCT:product}/priv-app",
+    "/data",
+    "/mnt/expand",
+    "/apex/com.android.runtime/${LIB}/bionic",
+    "/system/${LIB}/bootstrap"};
 
 void BuildPermittedPath(Namespace& ns) {
   for (const auto& path : kPermittedPaths) {
-    ns.AddPermittedPath(path, true, false);
+    ns.AddPermittedPath(path, AsanPath::SAME_PATH);
   }
 }
 }  // namespace
@@ -62,18 +94,12 @@ Namespace BuildSystemDefaultNamespace([[maybe_unused]] const Context& ctx) {
   Namespace ns("default", /*is_isolated=*/!is_legacy,
                /*is_visible=*/true);
 
-  ns.AddSearchPath("/system/${LIB}", /*also_in_asan=*/true,
-                   /*with_data_asan=*/true);
-  ns.AddSearchPath("/@{PRODUCT:product}/${LIB}", /*also_in_asan=*/true,
-                   /*with_data_asan=*/true);
+  ns.AddSearchPath("/system/${LIB}", AsanPath::WITH_DATA_ASAN);
+  ns.AddSearchPath("/@{SYSTEM_EXT:system_ext}/${LIB}", AsanPath::WITH_DATA_ASAN);
+  ns.AddSearchPath("/@{PRODUCT:product}/${LIB}", AsanPath::WITH_DATA_ASAN);
   if (is_legacy) {
-    ns.AddSearchPath("/vendor/${LIB}", /*also_in_asan=*/true,
-                     /*with_data_asan=*/true);
-    ns.AddSearchPath("/odm/${LIB}", /*also_in_asan=*/true,
-                     /*with_data_asan=*/true);
-  } else {
-    ns.AddSearchPath("/@{PRODUCT_SERVICES:product_services}/${LIB}",
-                     /*also_in_asan=*/true, /*with_data_asan=*/true);
+    ns.AddSearchPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
+    ns.AddSearchPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
   }
 
   if (!is_legacy) {
@@ -83,6 +109,7 @@ Namespace BuildSystemDefaultNamespace([[maybe_unused]] const Context& ctx) {
   ns.CreateLink("runtime").AddSharedLib(is_legacy ? kLibsFromRuntimeLegacy
                                                   : kLibsFromRuntime);
   ns.CreateLink("resolv").AddSharedLib("libnetd_resolv.so");
+  ns.CreateLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
 
   return ns;
 }

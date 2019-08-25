@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/namespacebuilder.h"
-
-using android::linkerconfig::modules::AsanPath;
-using android::linkerconfig::modules::Namespace;
+#pragma once
 
 namespace android {
 namespace linkerconfig {
-namespace contents {
-Namespace BuildPostInstallNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("default", /*is_isolated=*/false,
-               /*is_visible=*/false);
-  ns.AddSearchPath("/system/${LIB}", AsanPath::NONE);
-  ns.AddSearchPath("/@{SYSTEM_EXT:system_ext}/${LIB}", AsanPath::NONE);
-  ns.AddSearchPath("/@{PRODUCT:product}/${LIB}", AsanPath::NONE);
+namespace generator {
 
-  return ns;
-}
-}  // namespace contents
+void LoadVariables();
+
+}  // namespace generator
 }  // namespace linkerconfig
 }  // namespace android

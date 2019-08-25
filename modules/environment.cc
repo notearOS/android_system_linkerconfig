@@ -30,7 +30,7 @@ bool IsLegacyDevice() {
 
 bool IsVndkInSystemNamespace() {
   // TODO : Implement
-  return true;
+  return Variables::GetValue("VNDK_USING_CORE_VARIANT_LIBRARIES").has_value();
 }
 
 std::string GetVendorVndkVersion() {
