@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+
 #include <vector>
 
 #include "linkerconfig/configuration.h"
+#include "linkerconfig/variables.h"
 #include "modules_testbase.h"
 
 using namespace android::linkerconfig::modules;
@@ -38,11 +40,11 @@ namespace.default.search.paths += /search_path3
 namespace.default.permitted.paths = /permitted_path1
 namespace.default.permitted.paths += /permitted_path2
 namespace.default.permitted.paths += /permitted_path3
-namespace.default.asan.search.paths = /search_path1
-namespace.default.asan.search.paths += /data/asan/search_path1
+namespace.default.asan.search.paths = /data/asan/search_path1
+namespace.default.asan.search.paths += /search_path1
 namespace.default.asan.search.paths += /search_path2
-namespace.default.asan.permitted.paths = /permitted_path1
-namespace.default.asan.permitted.paths += /data/asan/permitted_path1
+namespace.default.asan.permitted.paths = /data/asan/permitted_path1
+namespace.default.asan.permitted.paths += /permitted_path1
 namespace.default.asan.permitted.paths += /permitted_path2
 namespace.default.links = namespace1,namespace2
 namespace.default.link.namespace1.shared_libs = lib1.so
@@ -56,11 +58,11 @@ namespace.namespace1.search.paths += /search_path3
 namespace.namespace1.permitted.paths = /permitted_path1
 namespace.namespace1.permitted.paths += /permitted_path2
 namespace.namespace1.permitted.paths += /permitted_path3
-namespace.namespace1.asan.search.paths = /search_path1
-namespace.namespace1.asan.search.paths += /data/asan/search_path1
+namespace.namespace1.asan.search.paths = /data/asan/search_path1
+namespace.namespace1.asan.search.paths += /search_path1
 namespace.namespace1.asan.search.paths += /search_path2
-namespace.namespace1.asan.permitted.paths = /permitted_path1
-namespace.namespace1.asan.permitted.paths += /data/asan/permitted_path1
+namespace.namespace1.asan.permitted.paths = /data/asan/permitted_path1
+namespace.namespace1.asan.permitted.paths += /permitted_path1
 namespace.namespace1.asan.permitted.paths += /permitted_path2
 namespace.namespace2.isolated = false
 namespace.namespace2.search.paths = /search_path1
@@ -69,11 +71,11 @@ namespace.namespace2.search.paths += /search_path3
 namespace.namespace2.permitted.paths = /permitted_path1
 namespace.namespace2.permitted.paths += /permitted_path2
 namespace.namespace2.permitted.paths += /permitted_path3
-namespace.namespace2.asan.search.paths = /search_path1
-namespace.namespace2.asan.search.paths += /data/asan/search_path1
+namespace.namespace2.asan.search.paths = /data/asan/search_path1
+namespace.namespace2.asan.search.paths += /search_path1
 namespace.namespace2.asan.search.paths += /search_path2
-namespace.namespace2.asan.permitted.paths = /permitted_path1
-namespace.namespace2.asan.permitted.paths += /data/asan/permitted_path1
+namespace.namespace2.asan.permitted.paths = /data/asan/permitted_path1
+namespace.namespace2.asan.permitted.paths += /permitted_path1
 namespace.namespace2.asan.permitted.paths += /permitted_path2
 [vendor]
 namespace.default.isolated = false
@@ -83,22 +85,23 @@ namespace.default.search.paths += /search_path3
 namespace.default.permitted.paths = /permitted_path1
 namespace.default.permitted.paths += /permitted_path2
 namespace.default.permitted.paths += /permitted_path3
-namespace.default.asan.search.paths = /search_path1
-namespace.default.asan.search.paths += /data/asan/search_path1
+namespace.default.asan.search.paths = /data/asan/search_path1
+namespace.default.asan.search.paths += /search_path1
 namespace.default.asan.search.paths += /search_path2
-namespace.default.asan.permitted.paths = /permitted_path1
-namespace.default.asan.permitted.paths += /data/asan/permitted_path1
+namespace.default.asan.permitted.paths = /data/asan/permitted_path1
+namespace.default.asan.permitted.paths += /permitted_path1
 namespace.default.asan.permitted.paths += /permitted_path2
 )";
 
 TEST(linkerconfig_configuration, generate_configuration) {
+  Variables::AddValue("PRODUCT", "product");
   std::vector<Section> sections;
 
   std::vector<Namespace> system_namespaces;
   std::vector<std::string> system_binary_path = {
       "/system/bin",
       "/system/xbin",
-      "/product/bin",
+      "/@{PRODUCT}/bin",
   };
 
   system_namespaces.emplace_back(CreateNamespaceWithLinks(
@@ -108,19 +111,22 @@ TEST(linkerconfig_configuration, generate_configuration) {
   system_namespaces.emplace_back(
       CreateNamespaceWithPaths("namespace2", false, false));
 
-  Section system_section("system", system_binary_path,
-                         std::move(system_namespaces));
+  Section system_section(
+      "system", system_binary_path, std::move(system_namespaces));
   sections.emplace_back(std::move(system_section));
 
   std::vector<Namespace> vendor_namespaces;
-  std::vector<std::string> vendor_binary_path = {
-      "/odm/bin", "/vendor/bin", "/system/bin/vendor", "/product/bin/vendor"};
+  std::vector<std::string> vendor_binary_path = {"/odm/bin",
+                                                 "/vendor/bin",
+                                                 "/system/bin/vendor",
+                                                 "/product/bin/vendor",
+                                                 "/product/bin"};
 
   vendor_namespaces.emplace_back(
       CreateNamespaceWithPaths("default", false, false));
 
-  Section vendor_section("vendor", vendor_binary_path,
-                         std::move(vendor_namespaces));
+  Section vendor_section(
+      "vendor", vendor_binary_path, std::move(vendor_namespaces));
   sections.emplace_back(std::move(vendor_section));
 
   Configuration conf(std::move(sections));
