@@ -16,22 +16,13 @@
 
 #include "linkerconfig/sectionbuilder.h"
 
+#include "linkerconfig/common.h"
 #include "linkerconfig/namespacebuilder.h"
 #include "linkerconfig/section.h"
 
 using android::linkerconfig::contents::SectionType;
 using android::linkerconfig::modules::Namespace;
 using android::linkerconfig::modules::Section;
-
-namespace {
-const std::vector<std::string> kLegacyBinaryPath = {
-    "/system",
-    "/product",
-    "/vendor",
-    "/odm",
-    "/sbin",
-};
-}  // namespace
 
 namespace android {
 namespace linkerconfig {
@@ -41,13 +32,15 @@ Section BuildLegacySection(Context& ctx) {
   std::vector<Namespace> namespaces;
 
   namespaces.emplace_back(BuildSystemDefaultNamespace(ctx));
-  namespaces.emplace_back(BuildRuntimeNamespace(ctx));
+  namespaces.emplace_back(BuildArtNamespace(ctx));
   namespaces.emplace_back(BuildMediaNamespace(ctx));
   namespaces.emplace_back(BuildConscryptNamespace(ctx));
   namespaces.emplace_back(BuildResolvNamespace(ctx));
   namespaces.emplace_back(BuildNeuralNetworksNamespace(ctx));
 
-  return Section("legacy", kLegacyBinaryPath, std::move(namespaces));
+  Section section("legacy", std::move(namespaces));
+  AddStandardSystemLinks(ctx, &section);
+  return section;
 }
 }  // namespace contents
 }  // namespace linkerconfig

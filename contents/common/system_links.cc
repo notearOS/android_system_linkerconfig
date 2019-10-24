@@ -14,24 +14,31 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/namespacebuilder.h"
+#include "linkerconfig/common.h"
 
-using android::linkerconfig::modules::AsanPath;
-using android::linkerconfig::modules::Namespace;
+#include <string>
+
+#include "linkerconfig/context.h"
+#include "linkerconfig/section.h"
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Namespace BuildRuntimeNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("runtime", /*is_isolated=*/true,
-               /*is_visible=*/!ctx.IsVendorSection());
-  ns.AddSearchPath("/apex/com.android.art/${LIB}", AsanPath::SAME_PATH);
-  ns.AddSearchPath("/apex/com.android.runtime/${LIB}", AsanPath::SAME_PATH);
-  // TODO(b/119867084): Restrict to Bionic dlopen dependencies and PALette
-  // library when it exists.
-  ns.CreateLink(ctx.IsVendorSection() ? "system" : "default", true);
 
-  return ns;
+using android::linkerconfig::modules::Namespace;
+using android::linkerconfig::modules::Section;
+
+void AddStandardSystemLinks(const Context& ctx, Section* section) {
+  std::string system_ns_name = ctx.GetSystemNamespaceName();
+  section->ForEachNamespaces([system_ns_name](Namespace& ns) {
+    if (ns.GetName() != system_ns_name) {
+      ns.GetLink(system_ns_name)
+          .AddSharedLib({"libc.so",
+                         "libm.so",
+                         "libdl.so",
+                         "@{SANITIZER_RUNTIME_LIBRARIES}"});
+    }
+  });
 }
 }  // namespace contents
 }  // namespace linkerconfig

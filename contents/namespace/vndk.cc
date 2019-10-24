@@ -26,6 +26,7 @@ namespace linkerconfig {
 namespace contents {
 Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx) {
   bool is_system_section = ctx.IsSystemSection();
+  bool is_vndklite = ctx.IsVndkliteConfig();
   Namespace ns("vndk",
                /*is_isolated=*/is_system_section,
                /*is_visible=*/is_system_section);
@@ -47,28 +48,30 @@ Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx) {
     ns.AddPermittedPath("/odm/${LIB}/egl", AsanPath::WITH_DATA_ASAN);
     ns.AddPermittedPath("/vendor/${LIB}/hw", AsanPath::WITH_DATA_ASAN);
     ns.AddPermittedPath("/vendor/${LIB}/egl", AsanPath::WITH_DATA_ASAN);
-    ns.AddPermittedPath("/system/vendor/${LIB}/hw", AsanPath::NONE);
+    if (!is_vndklite) {
+      ns.AddPermittedPath("/system/vendor/${LIB}/hw", AsanPath::NONE);
+    }
     ns.AddPermittedPath("/system/vendor/${LIB}/egl", AsanPath::NONE);
     ns.AddPermittedPath("/system/${LIB}/vndk-sp-@{VNDK_VER}/hw",
                         AsanPath::WITH_DATA_ASAN);
   }
 
-  ns.CreateLink(is_system_section ? "default" : "system")
-      .AddSharedLib({"@{LLNDK_LIBRARIES}", "@{SANITIZER_RUNTIME_LIBRARIES}"});
-  ns.CreateLink("runtime").AddSharedLib("@{SANITIZER_RUNTIME_LIBRARIES}");
+  ns.GetLink(ctx.GetSystemNamespaceName()).AddSharedLib({"@{LLNDK_LIBRARIES}"});
 
-  if (is_system_section) {
-    ns.CreateLink("sphal", true);
-  } else {
-    ns.CreateLink("default", true);
+  if (!is_vndklite) {
+    if (is_system_section) {
+      ns.GetLink("sphal").AllowAllSharedLibs();
+    } else {
+      ns.GetLink("default").AllowAllSharedLibs();
 
-    if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
-      ns.CreateLink("vndk_in_system")
-          .AddSharedLib("@{VNDK_USING_CORE_VARIANT_LIBRARIES}");
+      if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
+        ns.GetLink("vndk_in_system")
+            .AddSharedLib("@{VNDK_USING_CORE_VARIANT_LIBRARIES}");
+      }
     }
   }
 
-  ns.CreateLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
+  ns.GetLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
 
   return ns;
 }
