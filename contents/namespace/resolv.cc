@@ -23,16 +23,10 @@ using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace {
-const std::vector<std::string> kLibsFromDefault = {"libc.so",
-                                                   "libcgrouprc.so",
-                                                   "libm.so",
-                                                   "libdl.so",
+const std::vector<std::string> kLibsFromDefault = {"libcgrouprc.so",
                                                    "libbinder_ndk.so",
                                                    "liblog.so",
                                                    "libvndksupport.so"};
-
-const std::vector<std::string> kLibsFromUnrestrictedDefault =
-    {"libc.so", "libm.so", "libdl.so", "libbinder_ndk.so", "liblog.so"};
 }  // namespace
 
 namespace android {
@@ -41,8 +35,8 @@ namespace contents {
 Namespace BuildResolvNamespace([[maybe_unused]] const Context& ctx) {
   Namespace ns("resolv", /*is_isolated=*/true, /*is_visible=*/true);
   ns.AddSearchPath("/apex/com.android.resolv/${LIB}", AsanPath::SAME_PATH);
-  ns.CreateLink("default").AddSharedLib(
-      ctx.IsSystemSection() ? kLibsFromDefault : kLibsFromUnrestrictedDefault);
+
+  ns.GetLink(ctx.GetSystemNamespaceName()).AddSharedLib(kLibsFromDefault);
 
   return ns;
 }

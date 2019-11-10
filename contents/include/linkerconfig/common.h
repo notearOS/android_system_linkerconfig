@@ -13,26 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include "linkerconfig/sectionbuilder.h"
-
-#include "linkerconfig/namespacebuilder.h"
-
-using android::linkerconfig::contents::SectionType;
-using android::linkerconfig::modules::Namespace;
-using android::linkerconfig::modules::Section;
+#include "linkerconfig/context.h"
+#include "linkerconfig/section.h"
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Section BuildPostInstallSection(Context& ctx) {
-  ctx.SetCurrentSection(SectionType::Other);
-  std::vector<Namespace> namespaces;
 
-  namespaces.emplace_back(BuildPostInstallNamespace(ctx));
+using android::linkerconfig::modules::Section;
 
-  return Section("postinstall", std::move(namespaces));
-}
+// Adds links from all namespaces in the given section to the namespace for
+// /system/${LIB} for standard libraries like Bionic (libc.so, libm.so,
+// libdl.so) and applicable libclang_rt.*.
+void AddStandardSystemLinks(const Context& ctx, Section* section);
+
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

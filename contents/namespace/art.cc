@@ -16,43 +16,34 @@
 
 #include "linkerconfig/namespacebuilder.h"
 
-#include "linkerconfig/environment.h"
-#include "linkerconfig/namespace.h"
-
 using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
-
-namespace {
-const std::vector<std::string> kLibsFromArt = {
-    "libdexfile_external.so",
-    "libdexfiled_external.so",
-    "libnativebridge.so",
-    "libnativehelper.so",
-    "libnativeloader.so",
-    "libandroidicu.so",
-    "libpac.so",
-    // TODO(b/120786417 or b/134659294): libicuuc.so and libicui18n.so are kept
-    // for app compat.
-    "libicui18n.so",
-    "libicuuc.so"};
-}  // namespace
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Namespace BuildUnrestrictedDefaultNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("default", /*is_isolated=*/false, /*is_visible=*/true);
 
-  ns.AddSearchPath("/system/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
+Namespace BuildArtNamespace([[maybe_unused]] const Context& ctx) {
+  // Make the namespace visible to allow links to be created at runtime, e.g.
+  // through android_link_namespaces in libnativeloader. That is not applicable
+  // to the vendor section.
+  Namespace ns("art",
+               /*is_isolated=*/true,
+               /*is_visible=*/!ctx.IsVendorSection());
 
-  ns.GetLink("art").AddSharedLib(kLibsFromArt);
-  ns.GetLink("resolv").AddSharedLib("libnetd_resolv.so");
+  ns.AddSearchPath("/apex/com.android.art/${LIB}", AsanPath::SAME_PATH);
+
+  // Need allow_all_shared_libs to let libart.so dlopen oat files in
+  // /system/framework and /data.
+  // TODO(b/130340935): Use a dynamically created linker namespace similar to
+  // classloader-namespace for oat files, and tighten this up.
+  ns.GetLink(ctx.GetSystemNamespaceName()).AllowAllSharedLibs();
+
   ns.GetLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
 
   return ns;
 }
+
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

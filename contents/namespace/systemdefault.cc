@@ -14,26 +14,15 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/namespacebuilder.h"
-
 #include "linkerconfig/environment.h"
 #include "linkerconfig/namespace.h"
+#include "linkerconfig/namespacebuilder.h"
 
 using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace {
-const std::vector<std::string> kLibsFromRuntimeLegacy = {
-    "libart.so:libartd.so",
-    "libdexfile_external.so",
-    "libnativebridge.so",
-    "libnativehelper.so",
-    "libnativeloader.so",
-    "libandroidicu.so",
-    // TODO(b/122876336): Remove libpac.so once it's migrated to Webview
-    "libpac.so"};
-
-const std::vector<std::string> kLibsFromRuntime = {
+const std::vector<std::string> kLibsFromArt = {
     "libdexfile_external.so",
     "libdexfiled_external.so",
     "libnativebridge.so",
@@ -41,11 +30,11 @@ const std::vector<std::string> kLibsFromRuntime = {
     "libnativeloader.so",
     "libandroidicu.so",
     "libpac.so",
-    "@{SANITIZER_RUNTIME_LIBRARIES}",
-    // TODO(b/120786417 or b/134659294): libicuuc.so and libicui18n.so are kept
-    // for app compat.
+    // TODO(b/120786417 or b/134659294): libicuuc.so
+    // and libicui18n.so are kept for app compat.
     "libicui18n.so",
-    "libicuuc.so"};
+    "libicuuc.so",
+};
 
 const std::vector<std::string> kPermittedPaths = {
     "/system/${LIB}/drm",
@@ -90,26 +79,27 @@ namespace android {
 namespace linkerconfig {
 namespace contents {
 Namespace BuildSystemDefaultNamespace([[maybe_unused]] const Context& ctx) {
-  bool is_legacy = android::linkerconfig::modules::IsLegacyDevice();
-  Namespace ns("default", /*is_isolated=*/!is_legacy,
+  bool is_fully_treblelized = ctx.IsDefaultConfig();
+  Namespace ns("default",
+               /*is_isolated=*/is_fully_treblelized,
                /*is_visible=*/true);
 
   ns.AddSearchPath("/system/${LIB}", AsanPath::WITH_DATA_ASAN);
   ns.AddSearchPath("/@{SYSTEM_EXT:system_ext}/${LIB}", AsanPath::WITH_DATA_ASAN);
   ns.AddSearchPath("/@{PRODUCT:product}/${LIB}", AsanPath::WITH_DATA_ASAN);
-  if (is_legacy) {
+  if (!is_fully_treblelized) {
     ns.AddSearchPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
     ns.AddSearchPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
   }
 
-  if (!is_legacy) {
+  if (is_fully_treblelized) {
     BuildPermittedPath(ns);
   }
 
-  ns.CreateLink("runtime").AddSharedLib(is_legacy ? kLibsFromRuntimeLegacy
-                                                  : kLibsFromRuntime);
-  ns.CreateLink("resolv").AddSharedLib("libnetd_resolv.so");
-  ns.CreateLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
+  ns.GetLink("art").AddSharedLib(kLibsFromArt);
+
+  ns.GetLink("resolv").AddSharedLib("libnetd_resolv.so");
+  ns.GetLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
 
   return ns;
 }

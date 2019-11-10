@@ -16,6 +16,7 @@
 
 #include "linkerconfig/sectionbuilder.h"
 
+#include "linkerconfig/common.h"
 #include "linkerconfig/environment.h"
 #include "linkerconfig/namespacebuilder.h"
 #include "linkerconfig/section.h"
@@ -24,21 +25,6 @@ using android::linkerconfig::contents::SectionType;
 using android::linkerconfig::modules::Namespace;
 using android::linkerconfig::modules::Section;
 
-namespace {
-const std::vector<std::string> kBinaryPath = {
-    "/odm/bin/",
-    "/vendor/bin/",
-    "/data/nativetest/odm",
-    "/data/nativetest64/odm",
-    "/data/benchmarktest/odm",
-    "/data/benchmarktest64/odm",
-    "/data/nativetest/vendor",
-    "/data/nativetest64/vendor",
-    "/data/benchmarktest/vendor",
-    "/data/benchmarktest64/vendor",
-};
-}  // namespace
-
 namespace android {
 namespace linkerconfig {
 namespace contents {
@@ -46,17 +32,26 @@ Section BuildVendorSection(Context& ctx) {
   ctx.SetCurrentSection(SectionType::Vendor);
   std::vector<Namespace> namespaces;
 
+  bool is_vndklite = ctx.IsVndkliteConfig();
+
   namespaces.emplace_back(BuildVendorDefaultNamespace(ctx));
-  namespaces.emplace_back(BuildRuntimeNamespace(ctx));
-  namespaces.emplace_back(BuildVndkNamespace(ctx));
-  namespaces.emplace_back(BuildSystemNamespace(ctx));
+  namespaces.emplace_back(BuildArtNamespace(ctx));
+  // VNDK-Lite devices does not contain VNDK and System namespace in vendor
+  // section. Instead they (except libraries from APEX) will be loaded from
+  // default namespace, so VNDK libraries can access private platform libraries.
+  if (!is_vndklite) {
+    namespaces.emplace_back(BuildVndkNamespace(ctx));
+    namespaces.emplace_back(BuildSystemNamespace(ctx));
+  }
   namespaces.emplace_back(BuildNeuralNetworksNamespace(ctx));
 
   if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
     namespaces.emplace_back(BuildVndkInSystemNamespace(ctx));
   }
 
-  return Section("vendor", kBinaryPath, std::move(namespaces));
+  Section section("vendor", std::move(namespaces));
+  AddStandardSystemLinks(ctx, &section);
+  return section;
 }
 }  // namespace contents
 }  // namespace linkerconfig

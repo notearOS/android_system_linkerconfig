@@ -22,31 +22,21 @@
 #include "linkerconfig/environment.h"
 
 using android::linkerconfig::modules::AsanPath;
+using android::linkerconfig::modules::Link;
 using android::linkerconfig::modules::Namespace;
 
 namespace {
-const std::vector<std::string> kLibsFromDefaultLegacy = {
-    "libandroid.so",
-    "libbinder_ndk.so",
-    "libc.so",
-    "libcgrouprc.so",
-    "libdl.so",
-    "liblog.so",
-    "libmediametrics.so",
-    "libmediandk.so",
-    "libm.so",
-    "libvndksupport.so",
-    "libclang_rt.asan-aarch64-android.so",
-    "libclang_rt.asan-arm-android.so",
-    "libclang_rt.asan-i686-android.so",
-    "libclang_rt.asan-x86_64-android.so",
-    "libclang_rt.hwasan-aarch64-android.so"};
+const std::vector<std::string> kLibsFromDefaultLegacy = {"libandroid.so",
+                                                         "libbinder_ndk.so",
+                                                         "libcgrouprc.so",
+                                                         "liblog.so",
+                                                         "libmediametrics.so",
+                                                         "libmediandk.so",
+                                                         "libvndksupport.so"};
 
-const std::vector<std::string> kLibsFromDefault = {
-    "@{LLNDK_LIBRARIES}",
-    "libbinder_ndk.so",
-    "libmediametrics.so",
-    "@{SANITIZER_RUNTIME_LIBRARIES}"};
+const std::vector<std::string> kLibsFromDefault = {"@{LLNDK_LIBRARIES}",
+                                                   "libbinder_ndk.so",
+                                                   "libmediametrics.so"};
 
 const std::vector<std::string> kLibsFromDefaultSystem = {"libcgrouprc.so"};
 }  // namespace
@@ -55,25 +45,27 @@ namespace android {
 namespace linkerconfig {
 namespace contents {
 Namespace BuildMediaNamespace([[maybe_unused]] const Context& ctx) {
-  bool is_legacy = android::linkerconfig::modules::IsLegacyDevice();
+  bool is_legacy = ctx.IsLegacyConfig();
+  bool is_vndklite = ctx.IsVndkliteConfig();
   bool is_system_section = ctx.IsSystemSection();
 
   Namespace ns("media", /*is_isolated=*/true, /*is_visible=*/true);
   ns.AddSearchPath("/apex/com.android.media/${LIB}", AsanPath::SAME_PATH);
-  ns.AddPermittedPath("/apex/com.android.media/${LIB}/extractors",
-                      AsanPath::SAME_PATH);
+  ns.AddPermittedPath(
+      "/apex/com.android.media/${LIB}/extractors",
+      (is_legacy || is_vndklite) ? AsanPath::NONE : AsanPath::SAME_PATH);
 
-  auto& link_to_default = ns.CreateLink("default");
+  Link& system_link = ns.GetLink(ctx.GetSystemNamespaceName());
   if (is_legacy) {
-    link_to_default.AddSharedLib(kLibsFromDefaultLegacy);
+    system_link.AddSharedLib(kLibsFromDefaultLegacy);
   } else {
-    link_to_default.AddSharedLib(kLibsFromDefault);
-    if (is_system_section) {
-      link_to_default.AddSharedLib(kLibsFromDefaultSystem);
+    system_link.AddSharedLib(kLibsFromDefault);
+    if (is_system_section && !is_vndklite) {
+      system_link.AddSharedLib(kLibsFromDefaultSystem);
     }
   }
 
-  ns.CreateLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
+  ns.GetLink("neuralnetworks").AddSharedLib("libneuralnetworks.so");
 
   return ns;
 }

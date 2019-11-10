@@ -29,11 +29,8 @@ namespace modules {
 
 class Section {
  public:
-  Section(std::string name, std::vector<std::string> binary_paths,
-          std::vector<Namespace> namespaces)
-      : name_(std::move(name)),
-        binary_paths_(std::move(binary_paths)),
-        namespaces_(std::move(namespaces)) {
+  Section(std::string name, std::vector<Namespace> namespaces)
+      : name_(std::move(name)), namespaces_(std::move(namespaces)) {
   }
 
   Section(const Section&) = delete;
@@ -43,12 +40,17 @@ class Section {
   std::vector<std::string> GetBinaryPaths();
   std::string GetName();
 
-  // For test usage
   Namespace* GetNamespace(const std::string& namespace_name);
+
+  template <class _Function>
+  void ForEachNamespaces(_Function f) {
+    for (auto& ns : namespaces_) {
+      f(ns);
+    }
+  }
 
  private:
   const std::string name_;
-  std::vector<std::string> binary_paths_;
   std::vector<Namespace> namespaces_;
 };
 }  // namespace modules
