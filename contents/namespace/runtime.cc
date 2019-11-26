@@ -14,34 +14,32 @@
  * limitations under the License.
  */
 
-// This namespace is for libraries within the resolv APEX.
+// Currently, the runtime namespace is only to isolate
+// libc_malloc_hooks/debug.so in the Runtime APEX. libc/l/d are loaded in the
+// default namespace.
 
 #include "linkerconfig/namespacebuilder.h"
-
-#include <string>
-#include <vector>
 
 using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
-namespace {
-const std::vector<std::string> kLibsFromDefault = {"libcgrouprc.so",
-                                                   "libbinder_ndk.so",
-                                                   "liblog.so",
-                                                   "libvndksupport.so"};
-}  // namespace
-
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Namespace BuildResolvNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("resolv", /*is_isolated=*/true, /*is_visible=*/true);
-  ns.AddSearchPath("/apex/com.android.resolv/${LIB}", AsanPath::SAME_PATH);
 
-  ns.GetLink(ctx.GetSystemNamespaceName()).AddSharedLib(kLibsFromDefault);
+Namespace BuildRuntimeNamespace([[maybe_unused]] const Context& ctx) {
+  Namespace ns("runtime",
+               /*is_isolated=*/true,
+               /*is_visible=*/true);
+
+  ns.AddSearchPath("/apex/com.android.runtime/${LIB}", AsanPath::SAME_PATH);
+
+  ns.GetLink(ctx.GetSystemNamespaceName())
+      .AddSharedLib("libc.so", "libdl.so", "libm.so", "liblog.so");
 
   return ns;
 }
+
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

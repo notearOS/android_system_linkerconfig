@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// Namespace config for vendor processes.
+
 #include "linkerconfig/sectionbuilder.h"
 
 #include "linkerconfig/common.h"
@@ -48,6 +50,8 @@ Section BuildVendorSection(Context& ctx) {
   if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
     namespaces.emplace_back(BuildVndkInSystemNamespace(ctx));
   }
+
+  namespaces.emplace_back(BuildRuntimeNamespace(ctx));
 
   Section section("vendor", std::move(namespaces));
   AddStandardSystemLinks(ctx, &section);
