@@ -15,6 +15,9 @@
  */
 
 #include "linkerconfig/environment.h"
+
+#include <unistd.h>
+
 #include "linkerconfig/variables.h"
 
 namespace android {
@@ -36,6 +39,10 @@ bool IsVndkInSystemNamespace() {
 
 std::string GetVendorVndkVersion() {
   return Variables::GetValue("ro.vndk.version").value_or("");
+}
+
+bool IsRecoveryMode() {
+  return access("/system/bin/recovery", F_OK) == 0;
 }
 }  // namespace modules
 }  // namespace linkerconfig
