@@ -28,7 +28,6 @@ cc_defaults {
         "lib_apex_manifest_proto_lite",
     ],
     host_supported: true,
-    recovery_available: true,
 }
 
 cc_defaults {
@@ -39,7 +38,6 @@ cc_defaults {
         "-Wunused",
     ],
     test_suites: ["general-tests"],
-    recovery_available: false,
 }
 
 cc_library_static {
@@ -148,5 +146,19 @@ cc_test {
         "linkerconfig_modules",
         "linkerconfig_contents",
     ],
-    host_supported: true,
+}
+
+prebuilt_etc {
+    name: "ld.config.recovery.txt",
+    recovery: true,
+    filename: "ld.config.txt",
+    src: ":generate_recovery_linker_config",
+}
+
+genrule {
+    name: "generate_recovery_linker_config",
+    recovery: true,
+    out: ["ld.config.txt"],
+    tools: ["linkerconfig"],
+    cmd: "$(location linkerconfig) --recovery --target $(genDir)",
 }
