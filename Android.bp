@@ -24,8 +24,11 @@ cc_defaults {
     static_libs: [
         "libbase",
         "liblog",
+        "libprotobuf-cpp-lite",
+        "lib_apex_manifest_proto_lite",
     ],
     host_supported: true,
+    recovery_available: true,
 }
 
 cc_defaults {
@@ -36,6 +39,7 @@ cc_defaults {
         "-Wunused",
     ],
     test_suites: ["general-tests"],
+    recovery_available: false,
 }
 
 cc_library_static {
@@ -98,9 +102,9 @@ cc_test {
         "modules/tests/*_test.cc",
     ],
     static_libs: [
+        "libgmock",
         "linkerconfig_modules",
     ],
-    host_supported: true,
 }
 
 cc_test {

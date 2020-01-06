@@ -14,27 +14,23 @@
  * limitations under the License.
  */
 
-// This namespace is for libraries within the resolv APEX.
+#include "linkerconfig/sectionbuilder.h"
 
 #include "linkerconfig/namespacebuilder.h"
+#include "linkerconfig/section.h"
 
-#include <string>
-#include <vector>
-
-using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
+using android::linkerconfig::modules::Section;
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Namespace BuildResolvNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("resolv", /*is_isolated=*/true, /*is_visible=*/true);
-  ns.AddSearchPath("/apex/com.android.resolv/${LIB}", AsanPath::SAME_PATH);
-  ns.AddPermittedPath("/system/${LIB}");
+Section BuildRecoverySection(Context& ctx) {
+  std::vector<Namespace> namespaces;
+  namespaces.emplace_back(BuildRecoveryDefaultNamespace(ctx));
+  Section section("recovery", std::move(namespaces));
 
-  ns.GetLink(ctx.GetSystemNamespaceName()).AddSharedLib({"libbinder_ndk.so"});
-
-  return ns;
+  return section;
 }
 }  // namespace contents
 }  // namespace linkerconfig
