@@ -15,8 +15,10 @@
  */
 #pragma once
 
+#include <optional>
 #include <string>
 
+#include "linkerconfig/apex.h"
 namespace android {
 namespace linkerconfig {
 namespace contents {
@@ -24,6 +26,7 @@ namespace contents {
 enum class SectionType {
   System,
   Vendor,
+  Product,
   Other,
 };
 
@@ -37,11 +40,12 @@ enum class LinkerConfigType {
 class Context {
  public:
   Context()
-      : current_section(SectionType::System),
-        current_linkerconfig_type(LinkerConfigType::Default) {
+      : current_section_(SectionType::System),
+        current_linkerconfig_type_(LinkerConfigType::Default) {
   }
   bool IsSystemSection() const;
   bool IsVendorSection() const;
+  bool IsProductSection() const;
 
   bool IsDefaultConfig() const;
   bool IsLegacyConfig() const;
@@ -54,9 +58,16 @@ class Context {
   // Returns the namespace that covers /system/${LIB}.
   std::string GetSystemNamespaceName() const;
 
+  void AddApexModule(android::linkerconfig::modules::ApexInfo apex_module);
+  const std::vector<android::linkerconfig::modules::ApexInfo>& GetApexModules()
+      const;
+
  private:
-  SectionType current_section;
-  LinkerConfigType current_linkerconfig_type;
+  SectionType current_section_;
+  LinkerConfigType current_linkerconfig_type_;
+
+  // Available APEX Modules which contains binary and/or library
+  std::vector<android::linkerconfig::modules::ApexInfo> apex_modules_;
 };
 }  // namespace contents
 }  // namespace linkerconfig
