@@ -19,8 +19,7 @@
 #include <string>
 #include <vector>
 
-#include <android-base/result.h>
-
+#include "linkerconfig/apex.h"
 #include "linkerconfig/configwriter.h"
 #include "linkerconfig/link.h"
 #include "linkerconfig/log.h"
@@ -49,6 +48,14 @@ class Namespace {
       : is_isolated_(is_isolated),
         is_visible_(is_visible),
         name_(std::move(name)) {
+  }
+
+  explicit Namespace(const ApexInfo& apex_info)
+      : is_isolated_(true), is_visible_(false), name_(apex_info.name) {
+    AddSearchPath(apex_info.path + "/${LIB}");
+    AddPermittedPath("/system/${LIB}");
+    AddProvides(apex_info.provide_libs);
+    AddRequires(apex_info.require_libs);
   }
 
   Namespace(const Namespace& ns) = delete;
@@ -143,9 +150,7 @@ class Namespace {
                        const std::vector<std::string>& path_list);
 };
 
-::android::base::Result<void> InitializeWithApex(Namespace& ns,
-                                                 const std::string& apex_path);
-
+void InitializeWithApex(Namespace& ns, const ApexInfo& apex_info);
 }  // namespace modules
 }  // namespace linkerconfig
 }  // namespace android

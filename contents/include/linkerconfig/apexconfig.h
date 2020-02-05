@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include <string>
+#include "linkerconfig/apex.h"
+#include "linkerconfig/configuration.h"
+#include "linkerconfig/context.h"
 
 namespace android {
 namespace linkerconfig {
-namespace modules {
-bool IsLegacyDevice();
-bool IsVndkLiteDevice();
-bool IsVndkInSystemNamespace();
-std::string GetVendorVndkVersion();
-std::string GetProductVndkVersion();
-bool IsProductVndkVersionDefined();
-bool IsRecoveryMode();
-}  // namespace modules
+namespace contents {
+android::linkerconfig::modules::Configuration CreateApexConfiguration(
+    android::linkerconfig::contents::Context& ctx,
+    const android::linkerconfig::modules::ApexInfo& target_apex);
+}  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android
