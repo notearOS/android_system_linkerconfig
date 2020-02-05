@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "linkerconfig/common.h"
-
 #include <string>
 
+#include <android-base/strings.h>
+
+#include "linkerconfig/common.h"
 #include "linkerconfig/context.h"
 #include "linkerconfig/section.h"
+#include "linkerconfig/variables.h"
 
 namespace android {
 namespace linkerconfig {
@@ -33,12 +35,17 @@ void AddStandardSystemLinks(const Context& ctx, Section* section) {
   section->ForEachNamespaces([system_ns_name](Namespace& ns) {
     if (ns.GetName() != system_ns_name) {
       ns.GetLink(system_ns_name)
-          .AddSharedLib({"libc.so",
-                         "libm.so",
-                         "libdl.so",
-                         "@{SANITIZER_RUNTIME_LIBRARIES}"});
+          .AddSharedLib("@{STUB_LIBRARIES}", "@{SANITIZER_RUNTIME_LIBRARIES}");
     }
   });
+
+  Namespace* system_ns = section->GetNamespace(system_ns_name);
+  if (system_ns) {
+    std::optional<std::string> stub_libraries_var =
+        android::linkerconfig::modules::Variables::GetValue("STUB_LIBRARIES");
+    system_ns->AddProvides(
+        android::base::Split(stub_libraries_var.value_or(""), ":"));
+  }
 }
 }  // namespace contents
 }  // namespace linkerconfig
