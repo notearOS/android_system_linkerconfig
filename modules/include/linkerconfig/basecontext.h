@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,27 +13,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-// This namespace is for libraries within the NNAPI APEX.
+#include <string>
+#include <vector>
 
-#include "linkerconfig/namespacebuilder.h"
-
-#include "linkerconfig/environment.h"
+#include "linkerconfig/apex.h"
 #include "linkerconfig/namespace.h"
-
-using android::linkerconfig::modules::AsanPath;
-using android::linkerconfig::modules::Namespace;
 
 namespace android {
 namespace linkerconfig {
-namespace contents {
-Namespace BuildCronetNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("cronet", /*is_isolated=*/true, /*is_visible=*/true);
-  ns.AddSearchPath("/apex/com.android.cronet/${LIB}", AsanPath::SAME_PATH);
-  ns.AddPermittedPath("/system/${LIB}");
+namespace modules {
 
-  return ns;
-}
-}  // namespace contents
+class BaseContext {
+ public:
+  BaseContext();
+  virtual ~BaseContext() = default;
+
+  void AddApexModule(ApexInfo apex_module);
+  const std::vector<ApexInfo>& GetApexModules() const;
+
+  void SetStrictMode(bool strict);
+  bool IsStrictMode() const;
+
+  virtual Namespace BuildApexNamespace(const ApexInfo& apex_info,
+                                       bool visible) const;
+
+ private:
+  bool strict_;
+
+  // Available APEX Modules which contains binary and/or library
+  std::vector<ApexInfo> apex_modules_;
+};
+
+}  // namespace modules
 }  // namespace linkerconfig
 }  // namespace android

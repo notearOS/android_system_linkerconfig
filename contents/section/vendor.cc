@@ -37,8 +37,6 @@ Section BuildVendorSection(Context& ctx) {
   bool is_vndklite = ctx.IsVndkliteConfig();
 
   namespaces.emplace_back(BuildVendorDefaultNamespace(ctx));
-  namespaces.emplace_back(BuildArtNamespace(ctx));
-  namespaces.emplace_back(BuildAdbdNamespace(ctx));
   // VNDK-Lite devices does not contain VNDK and System namespace in vendor
   // section. Instead they (except libraries from APEX) will be loaded from
   // default namespace, so VNDK libraries can access private platform libraries.
@@ -46,20 +44,19 @@ Section BuildVendorSection(Context& ctx) {
     namespaces.emplace_back(BuildVndkNamespace(ctx));
     namespaces.emplace_back(BuildSystemNamespace(ctx));
   }
-  namespaces.emplace_back(BuildNeuralNetworksNamespace(ctx));
 
   if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
     namespaces.emplace_back(BuildVndkInSystemNamespace(ctx));
   }
 
-  namespaces.emplace_back(BuildRuntimeNamespace(ctx));
-
-  Section section("vendor", std::move(namespaces));
-  AddStandardSystemLinks(ctx, &section);
-  if (auto res = section.Resolve(); !res) {
-    LOG(ERROR) << res.error();
-  }
-  return section;
+  return BuildSection(ctx,
+                      "vendor",
+                      std::move(namespaces),
+                      {
+                          "com.android.art",
+                          "com.android.neuralnetworks",
+                          "com.android.runtime",
+                      });
 }
 }  // namespace contents
 }  // namespace linkerconfig

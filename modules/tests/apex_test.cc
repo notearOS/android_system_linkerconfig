@@ -24,12 +24,14 @@
 
 #include "apex_testbase.h"
 #include "linkerconfig/apex.h"
+#include "linkerconfig/basecontext.h"
 #include "linkerconfig/configwriter.h"
 #include "linkerconfig/namespace.h"
 #include "linkerconfig/section.h"
 
 using ::android::base::WriteStringToFile;
 using ::android::linkerconfig::modules::ApexInfo;
+using ::android::linkerconfig::modules::BaseContext;
 using ::android::linkerconfig::modules::ConfigWriter;
 using ::android::linkerconfig::modules::InitializeWithApex;
 using ::android::linkerconfig::modules::Namespace;
@@ -53,14 +55,16 @@ TEST(apex_namespace, build_namespace) {
   ASSERT_EQ(
       "namespace.foo.isolated = false\n"
       "namespace.foo.search.paths = /apex/com.android.foo/${LIB}\n"
-      "namespace.foo.permitted.paths = /system/${LIB}\n"
+      "namespace.foo.permitted.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.permitted.paths += /system/${LIB}\n"
       "namespace.foo.asan.search.paths = /apex/com.android.foo/${LIB}\n"
-      "namespace.foo.asan.permitted.paths = /system/${LIB}\n",
-
+      "namespace.foo.asan.permitted.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /system/${LIB}\n",
       writer.ToString());
 }
 
 TEST(apex_namespace, resolve_between_apex_namespaces) {
+  BaseContext ctx;
   Namespace foo("foo"), bar("bar");
   InitializeWithApex(foo,
                      ApexInfo("com.android.foo",
@@ -82,8 +86,8 @@ TEST(apex_namespace, resolve_between_apex_namespaces) {
   namespaces.push_back(std::move(bar));
   Section section("section", std::move(namespaces));
 
-  auto result = section.Resolve();
-  ASSERT_TRUE(result) << result.error();
+  auto result = section.Resolve(ctx);
+  ASSERT_RESULT_OK(result);
 
   // See if two namespaces are linked correctly
   ASSERT_THAT(section.GetNamespace("foo")->GetLink("bar").GetSharedLibs(),
