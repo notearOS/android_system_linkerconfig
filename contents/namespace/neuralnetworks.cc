@@ -32,14 +32,19 @@ Namespace BuildNeuralNetworksNamespace([[maybe_unused]] const Context& ctx) {
   ns.AddSearchPath("/apex/com.android.neuralnetworks/${LIB}",
                    AsanPath::SAME_PATH);
   ns.AddPermittedPath("/system/${LIB}");
-
-  ns.GetLink(ctx.GetSystemNamespaceName())
-      .AddSharedLib({"libcgrouprc.so",
-                     "liblog.so",
-                     "libnativewindow.so",
-                     "libneuralnetworks_packageinfo.so",
-                     "libvndksupport.so"});
-
+  ns.AddProvides(std::vector{
+      "libneuralnetworks.so",
+  });
+  ns.AddRequires(std::vector{
+      "libc.so",
+      "libcgrouprc.so",
+      "libdl.so",
+      "liblog.so",
+      "libm.so",
+      "libnativewindow.so",
+      "libneuralnetworks_packageinfo.so",
+      "libvndksupport.so",
+  });
   return ns;
 }
 }  // namespace contents
