@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,40 +13,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "linkerconfig/sectionbuilder.h"
-
-#include <vector>
 
 #include "linkerconfig/common.h"
 #include "linkerconfig/log.h"
+#include "linkerconfig/namespace.h"
 #include "linkerconfig/namespacebuilder.h"
 #include "linkerconfig/section.h"
-
-using android::linkerconfig::contents::SectionType;
-using android::linkerconfig::modules::ApexInfo;
-using android::linkerconfig::modules::Namespace;
-using android::linkerconfig::modules::Section;
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Section BuildApexDefaultSection(Context& ctx, const ApexInfo& apex_info) {
-  std::vector<Namespace> namespaces;
 
-  ctx.SetCurrentSection(SectionType::Other);
+using modules::Namespace;
+using modules::Section;
 
-  namespaces.emplace_back(BuildApexDefaultNamespace(ctx, apex_info));
-  namespaces.emplace_back(BuildApexPlatformNamespace(ctx));
-
-  // SWCodec APEX requires extra access to SPHAL (and corresponding VNDK)
-  // namespace(s)
-  if (apex_info.name == "com.android.media.swcodec") {
-    namespaces.emplace_back(BuildSphalNamespace(ctx));
-    namespaces.emplace_back(BuildVndkNamespace(ctx));
+Section BuildSection(const Context& ctx, const std::string& name,
+                     std::vector<Namespace>&& namespaces,
+                     const std::vector<std::string>& visible_apexes) {
+  // add additional visible APEX namespaces
+  for (const auto& apex : ctx.GetApexModules()) {
+    if (std::find(visible_apexes.begin(), visible_apexes.end(), apex.name) !=
+        visible_apexes.end()) {
+      auto ns = ctx.BuildApexNamespace(apex, true);
+      namespaces.push_back(std::move(ns));
+    }
   }
 
-  return BuildSection(ctx, apex_info.name, std::move(namespaces), {});
+  // resolve provide/require constraints
+  Section section(std::move(name), std::move(namespaces));
+  if (auto res = section.Resolve(ctx); !res.ok()) {
+    LOG(ERROR) << res.error();
+  }
+
+  AddStandardSystemLinks(ctx, &section);
+  return section;
 }
 }  // namespace contents
 }  // namespace linkerconfig

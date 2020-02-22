@@ -33,6 +33,7 @@
 #include "linkerconfig/environment.h"
 #include "linkerconfig/legacy.h"
 #include "linkerconfig/log.h"
+#include "linkerconfig/namespacebuilder.h"
 #include "linkerconfig/recovery.h"
 #include "linkerconfig/variableloader.h"
 #include "linkerconfig/variables.h"
@@ -40,12 +41,14 @@
 using android::base::ErrnoError;
 using android::base::Error;
 using android::base::Result;
+using android::linkerconfig::contents::Context;
 using android::linkerconfig::modules::ApexInfo;
 using android::linkerconfig::modules::Configuration;
 
 namespace {
 const static struct option program_options[] = {
     {"target", required_argument, 0, 't'},
+    {"strict", no_argument, 0, 's'},
 #ifndef __ANDROID__
     {"root", required_argument, 0, 'r'},
     {"vndk", required_argument, 0, 'v'},
@@ -57,6 +60,7 @@ const static struct option program_options[] = {
 
 struct ProgramArgs {
   std::string target_directory;
+  bool strict;
   std::string root;
   std::string vndk_version;
   bool is_recovery;
@@ -65,6 +69,7 @@ struct ProgramArgs {
 
 [[noreturn]] void PrintUsage(int status = EXIT_SUCCESS) {
   std::cerr << "Usage : linkerconfig [--target <target_directory>]"
+               " [--strict]"
 #ifndef __ANDROID__
                " --root <root dir>"
                " --vndk <vndk version>"
@@ -79,10 +84,13 @@ struct ProgramArgs {
 bool ParseArgs(int argc, char* argv[], ProgramArgs* args) {
   int parse_result;
   while ((parse_result = getopt_long(
-              argc, argv, "t:r:v:hyl", program_options, NULL)) != -1) {
+              argc, argv, "t:sr:v:hyl", program_options, NULL)) != -1) {
     switch (parse_result) {
       case 't':
         args->target_directory = optarg;
+        break;
+      case 's':
+        args->strict = true;
         break;
       case 'r':
         args->root = optarg;
@@ -161,17 +169,34 @@ Result<void> UpdatePermission([[maybe_unused]] const std::string& file_path) {
   return {};
 }
 
-Configuration GetConfiguration() {
+Context GetContext(ProgramArgs args) {
+  const std::string apex_root = args.root + "/apex";
+  auto apex_list = android::linkerconfig::modules::ScanActiveApexes(apex_root);
+  Context ctx;
+  for (auto const& apex_item : apex_list) {
+    auto apex_info = apex_item.second;
+    if (apex_info.has_bin || apex_info.has_lib) {
+      ctx.AddApexModule(std::move(apex_info));
+    }
+  }
+  if (args.strict) {
+    ctx.SetStrictMode(true);
+  }
+  android::linkerconfig::contents::RegisterApexNamespaceBuilders(ctx);
+  return ctx;
+}
+
+Configuration GetConfiguration(Context& ctx) {
   if (android::linkerconfig::modules::IsRecoveryMode()) {
-    return android::linkerconfig::contents::CreateRecoveryConfiguration();
+    return android::linkerconfig::contents::CreateRecoveryConfiguration(ctx);
   }
 
   if (android::linkerconfig::modules::IsLegacyDevice()) {
-    return android::linkerconfig::contents::CreateLegacyConfiguration();
+    return android::linkerconfig::contents::CreateLegacyConfiguration(ctx);
   }
 
   // Use base configuration in default
-  return android::linkerconfig::contents::CreateBaseConfiguration();
+  return android::linkerconfig::contents::CreateBaseConfiguration(ctx);
 }
 
 Result<void> GenerateConfiguration(Configuration config, std::string dir_path,
@@ -182,7 +207,7 @@ Result<void> GenerateConfiguration(Configuration config, std::string dir_path,
   }
 
   auto write_config = WriteConfigurationToFile(config, file_path);
-  if (!write_config) {
+  if (!write_config.ok()) {
     return write_config;
   } else if (update_permission && file_path != "") {
     return UpdatePermission(file_path);
@@ -191,20 +216,23 @@ Result<void> GenerateConfiguration(Configuration config, std::string dir_path,
   return {};
 }
 
-Result<void> GenerateBaseLinkerConfiguration(std::string dir_path) {
-  return GenerateConfiguration(GetConfiguration(), dir_path, true);
+Result<void> GenerateBaseLinkerConfiguration(Context& ctx,
+                                             const std::string& dir_path) {
+  return GenerateConfiguration(GetConfiguration(ctx), dir_path, true);
 }
 
-Result<void> GenerateRecoveryLinkerConfiguration(std::string dir_path) {
+Result<void> GenerateRecoveryLinkerConfiguration(Context& ctx,
+                                                 const std::string& dir_path) {
   return GenerateConfiguration(
-      android::linkerconfig::contents::CreateRecoveryConfiguration(),
+      android::linkerconfig::contents::CreateRecoveryConfiguration(ctx),
       dir_path,
       false);
 }
 
-Result<void> GenerateLegacyLinkerConfiguration(std::string dir_path) {
+Result<void> GenerateLegacyLinkerConfiguration(Context& ctx,
+                                               const std::string& dir_path) {
   return GenerateConfiguration(
-      android::linkerconfig::contents::CreateLegacyConfiguration(),
+      android::linkerconfig::contents::CreateLegacyConfiguration(ctx),
       dir_path,
       false);
 }
@@ -223,21 +251,11 @@ Result<void> GenerateApexConfiguration(
       true);
 }
 
-void GenerateApexConfigurations(const std::string& dir_path) {
-  static std::string apex_root = "/apex";
-  auto apex_list = android::linkerconfig::modules::ScanActiveApexes(apex_root);
-  android::linkerconfig::contents::Context ctx;
-  for (auto const& apex_item : apex_list) {
-    auto apex_info = apex_item.second;
-    if (apex_info.has_bin || apex_info.has_lib) {
-      ctx.AddApexModule(apex_info);
-    }
-  }
-
-  for (auto const& apex_item : apex_list) {
-    if (apex_item.second.has_bin) {
-      auto result = GenerateApexConfiguration(dir_path, ctx, apex_item.second);
-      if (!result) {
+void GenerateApexConfigurations(Context& ctx, const std::string& dir_path) {
+  for (auto const& apex_item : ctx.GetApexModules()) {
+    if (apex_item.has_bin) {
+      auto result = GenerateApexConfiguration(dir_path, ctx, apex_item);
+      if (!result.ok()) {
         LOG(WARNING) << result.error();
       }
     }
@@ -245,7 +263,7 @@ void GenerateApexConfigurations(const std::string& dir_path) {
 }
 
 void ExitOnFailure(Result<void> task) {
-  if (!task) {
+  if (!task.ok()) {
     LOG(FATAL) << task.error();
     exit(EXIT_FAILURE);
   }
@@ -280,14 +298,16 @@ int main(int argc, char* argv[]) {
   }
 
   LoadVariables(args);
+  Context ctx = GetContext(args);
 
   if (args.is_recovery) {
-    ExitOnFailure(GenerateRecoveryLinkerConfiguration(args.target_directory));
+    ExitOnFailure(
+        GenerateRecoveryLinkerConfiguration(ctx, args.target_directory));
   } else if (args.is_legacy) {
-    ExitOnFailure(GenerateLegacyLinkerConfiguration(args.target_directory));
+    ExitOnFailure(GenerateLegacyLinkerConfiguration(ctx, args.target_directory));
   } else {
-    ExitOnFailure(GenerateBaseLinkerConfiguration(args.target_directory));
-    GenerateApexConfigurations(args.target_directory);
+    ExitOnFailure(GenerateBaseLinkerConfiguration(ctx, args.target_directory));
+    GenerateApexConfigurations(ctx, args.target_directory);
   }
 
   return EXIT_SUCCESS;

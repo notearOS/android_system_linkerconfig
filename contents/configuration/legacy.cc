@@ -21,34 +21,31 @@ using android::linkerconfig::contents::LinkerConfigType;
 using android::linkerconfig::modules::DirToSection;
 using android::linkerconfig::modules::Section;
 
-namespace {
-const std::vector<DirToSection> kDirToSection = {
-    // All binaries gets the same configuration 'legacy'
-    {"/system", "legacy"},
-    {"/@{SYSTEM_EXT:system_ext}", "legacy"},
-    {"/@{PRODUCT:product}", "legacy"},
-    {"/vendor", "legacy"},
-    {"/odm", "legacy"},
-    {"/sbin", "legacy"},
-    // Except for /postinstall, where only /system and /product are searched
-    {"/postinstall", "postinstall"},
-    // Fallback entry to provide APEX namespace lookups for binaries anywhere
-    // else. This must be last.
-    {"/data", "legacy"},
-};
-}  // namespace
-
 namespace android {
 namespace linkerconfig {
 namespace contents {
-android::linkerconfig::modules::Configuration CreateLegacyConfiguration() {
+android::linkerconfig::modules::Configuration CreateLegacyConfiguration(
+    Context& ctx) {
   std::vector<Section> sections;
-  Context current_context;
-  current_context.SetCurrentLinkerConfigType(LinkerConfigType::Legacy);
+  ctx.SetCurrentLinkerConfigType(LinkerConfigType::Legacy);
 
-  sections.emplace_back(BuildLegacySection(current_context));
-  sections.emplace_back(BuildPostInstallSection(current_context));
+  sections.emplace_back(BuildLegacySection(ctx));
+  sections.emplace_back(BuildPostInstallSection(ctx));
 
+  const std::vector<DirToSection> kDirToSection = {
+      // All binaries gets the same configuration 'legacy'
+      {"/system", "legacy"},
+      {"/" + Var("SYSTEM_EXT", "system_ext"), "legacy"},
+      {"/" + Var("PRODUCT", "product"), "legacy"},
+      {"/vendor", "legacy"},
+      {"/odm", "legacy"},
+      {"/sbin", "legacy"},
+      // Except for /postinstall, where only /system and /product are searched
+      {"/postinstall", "postinstall"},
+      // Fallback entry to provide APEX namespace lookups for binaries anywhere
+      // else. This must be last.
+      {"/data", "legacy"},
+  };
   return android::linkerconfig::modules::Configuration(std::move(sections),
                                                        kDirToSection);
 }
