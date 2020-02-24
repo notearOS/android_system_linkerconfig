@@ -27,7 +27,6 @@
 #include "linkerconfig/log.h"
 #include "linkerconfig/variables.h"
 
-using android::base::ErrnoErrorf;
 using android::base::Result;
 using android::linkerconfig::modules::GetProductVndkVersion;
 using android::linkerconfig::modules::GetVendorVndkVersion;
@@ -58,13 +57,13 @@ std::vector<std::string> stub_libraries = {
     "libdl.so",
     "libdl_android.so",
     "libft2.so",
+    "libincident.so",
     "liblog.so",
     "libm.so",
     "libmediametrics.so",
     "libmediandk.so",
     "libnativewindow.so",
     "libneuralnetworks_packageinfo.so",
-    "libstatssocket.so",
     "libsync.so",
     "libvndksupport.so",
     "libvulkan.so",
