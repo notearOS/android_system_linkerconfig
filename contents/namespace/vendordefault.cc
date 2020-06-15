@@ -17,8 +17,10 @@
 // This is the default linker namespace for a vendor process (a process started
 // from /vendor/bin/*).
 
-#include "linkerconfig/environment.h"
 #include "linkerconfig/namespacebuilder.h"
+
+#include "linkerconfig/common.h"
+#include "linkerconfig/environment.h"
 
 using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::GetVendorVndkVersion;
@@ -100,10 +102,14 @@ Namespace BuildVendorDefaultNamespace([[maybe_unused]] const Context& ctx) {
   ns.AddPermittedPath("/system/vendor", AsanPath::NONE);
 
   if (is_vndklite) {
+    // Because vendor-default NS works like system-default NS for VNDK-lite
+    // devices the requires/provides are added just like system-default.
     ns.AddRequires(kVndkLiteVendorRequires);
+    ns.AddProvides(GetSystemStubLibraries());
   } else {
     ns.GetLink(ctx.GetSystemNamespaceName())
-        .AddSharedLib(Var("LLNDK_LIBRARIES_VENDOR"));
+        .AddSharedLib(
+            {Var("LLNDK_LIBRARIES_VENDOR"), Var("SANITIZER_DEFAULT_VENDOR")});
     ns.GetLink("vndk").AddSharedLib({Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR"),
                                      Var("VNDK_CORE_LIBRARIES_VENDOR")});
     if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {

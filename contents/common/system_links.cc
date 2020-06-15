@@ -13,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "linkerconfig/common.h"
 
 #include <string>
 #include <vector>
 
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 
-#include "linkerconfig/common.h"
 #include "linkerconfig/context.h"
 #include "linkerconfig/section.h"
 #include "linkerconfig/variables.h"
+
+namespace {
+const std::vector<std::string> kBionicLibs = {
+    "libc.so",
+    "libdl.so",
+    "libdl_android.so",
+    "libm.so",
+};
+}  // namespace
 
 namespace android {
 namespace linkerconfig {
@@ -32,12 +42,20 @@ using android::linkerconfig::modules::Namespace;
 using android::linkerconfig::modules::Section;
 
 void AddStandardSystemLinks(const Context& ctx, Section* section) {
-  std::string system_ns_name = ctx.GetSystemNamespaceName();
-  section->ForEachNamespaces([system_ns_name](Namespace& ns) {
+  const bool debuggable = android::base::GetBoolProperty("ro.debuggable", false);
+  const std::string system_ns_name = ctx.GetSystemNamespaceName();
+  const bool is_section_vndk_enabled = ctx.IsSectionVndkEnabled();
+  section->ForEachNamespaces([&](Namespace& ns) {
     if (ns.GetName() != system_ns_name) {
-      ns.GetLink(system_ns_name)
-          .AddSharedLib(Var("STUB_LIBRARIES"),
-                        Var("SANITIZER_RUNTIME_LIBRARIES"));
+      ns.GetLink(system_ns_name).AddSharedLib(kBionicLibs);
+      if (!is_section_vndk_enabled || ns.GetName() != "default") {
+        ns.GetLink(system_ns_name)
+            .AddSharedLib(Var("SANITIZER_RUNTIME_LIBRARIES"));
+      }
+      if (debuggable) {
+        // Library on the system image that can be dlopened for debugging purposes.
+        ns.GetLink(system_ns_name).AddSharedLib("libfdtrack.so");
+      }
     }
   });
 }

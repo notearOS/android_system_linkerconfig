@@ -34,6 +34,7 @@ enum class SectionType {
   System,
   Vendor,
   Product,
+  Unrestricted,
   Other,
 };
 
@@ -54,6 +55,7 @@ class Context : public modules::BaseContext {
   bool IsSystemSection() const;
   bool IsVendorSection() const;
   bool IsProductSection() const;
+  bool IsUnrestrictedSection() const;
 
   bool IsDefaultConfig() const;
   bool IsLegacyConfig() const;
@@ -74,6 +76,8 @@ class Context : public modules::BaseContext {
                                         bool visible) const override;
   void RegisterApexNamespaceBuilder(const std::string& name,
                                     ApexNamespaceBuilder builder);
+
+  bool IsSectionVndkEnabled() const;
 
  private:
   std::map<std::string, ApexNamespaceBuilder> builders_;

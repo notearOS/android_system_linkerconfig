@@ -34,10 +34,15 @@ namespace android {
 namespace linkerconfig {
 namespace contents {
 Section BuildUnrestrictedSection(Context& ctx) {
-  ctx.SetCurrentSection(SectionType::Other);
+  ctx.SetCurrentSection(SectionType::Unrestricted);
   std::vector<Namespace> namespaces;
 
   namespaces.emplace_back(BuildUnrestrictedDefaultNamespace(ctx));
+  if (ctx.IsVndkAvailable()) {
+    namespaces.emplace_back(BuildSphalNamespace(ctx));
+    namespaces.emplace_back(BuildVndkNamespace(ctx, VndkUserPartition::Vendor));
+    namespaces.emplace_back(BuildRsNamespace(ctx));
+  }
 
   return BuildSection(ctx,
                       "unrestricted",
